@@ -26,6 +26,21 @@ cargo build --release
 ./target/release/ffx --help
 ```
 
+## macOS
+
+If macOS shows `"ffx" Not Opened` because the binary is not notarized, remove the quarantine attribute manually:
+
+```bash
+xattr -d com.apple.quarantine /path/to/ffx
+```
+
+For a binary in the current directory:
+
+```bash
+xattr -d com.apple.quarantine ./ffx
+./ffx --help
+```
+
 ## Command Overview
 
 ```bash
