@@ -26,8 +26,6 @@ cargo build --release
 ./target/release/ffx --help
 ```
 
-Prebuilt binaries can also be downloaded from GitHub Releases after tagging a version such as `v0.1.0`.
-
 ## Command Overview
 
 ```bash
@@ -148,21 +146,3 @@ ffx --dry-run cut input.mp4 --segment 10-20 --segment 30-40
 cargo fmt
 cargo test
 ```
-
-## Release
-
-This repository includes a GitHub Actions workflow at [.github/workflows/release.yml](/Users/guozijian/Code/ffx/.github/workflows/release.yml).
-
-Push a semantic version tag to build and publish release artifacts:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-The workflow builds and uploads archives for:
-
-- Linux `x86_64-unknown-linux-gnu`
-- macOS `aarch64-apple-darwin`
-- macOS `x86_64-apple-darwin`
-- Windows `x86_64-pc-windows-msvc`
