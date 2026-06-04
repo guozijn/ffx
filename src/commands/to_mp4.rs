@@ -2,6 +2,9 @@ use anyhow::Result;
 
 use crate::cli::{Preset, ToMp4Args};
 use crate::utils::ffmpeg::{MediaProbe, is_mp4_audio_compatible, is_mp4_video_compatible};
+use crate::utils::hwaccel::{
+    VideoEncodeSettings, append_h264_encode_args, insert_hwaccel_before_input,
+};
 use crate::utils::file::{build_output_path, ensure_parent_dir, validate_output_options};
 use crate::utils::runner::{AppContext, run_for_inputs};
 
@@ -40,31 +43,42 @@ pub fn run(context: &AppContext, args: &ToMp4Args) -> Result<()> {
                 Preset::HighQuality => (18, "slow"),
             };
 
-            vec![
-                "-hide_banner".into(),
-                "-y".into(),
-                "-i".into(),
-                input.display().to_string(),
-                "-map".into(),
-                "0:v:0".into(),
-                "-map".into(),
-                "0:a:0?".into(),
-                "-sn".into(),
-                "-dn".into(),
-                "-c:v".into(),
-                "libx264".into(),
-                "-crf".into(),
-                crf.to_string(),
-                "-preset".into(),
-                speed.into(),
-                "-c:a".into(),
-                "aac".into(),
-                "-b:a".into(),
-                "192k".into(),
-                "-movflags".into(),
-                "+faststart".into(),
-                output.display().to_string(),
-            ]
+            {
+                let mut ffmpeg_args = vec![
+                    "-hide_banner".into(),
+                    "-y".into(),
+                    "-i".into(),
+                    input.display().to_string(),
+                    "-map".into(),
+                    "0:v:0".into(),
+                    "-map".into(),
+                    "0:a:0?".into(),
+                    "-sn".into(),
+                    "-dn".into(),
+                ];
+                insert_hwaccel_before_input(&mut ffmpeg_args, &context.hwaccel);
+                append_h264_encode_args(
+                    &mut ffmpeg_args,
+                    &context.hwaccel,
+                    &VideoEncodeSettings {
+                        crf,
+                        x264_preset: Some(speed.into()),
+                        video_bitrate: None,
+                        maxrate: None,
+                        bufsize: None,
+                    },
+                );
+                ffmpeg_args.extend([
+                    "-c:a".into(),
+                    "aac".into(),
+                    "-b:a".into(),
+                    "192k".into(),
+                    "-movflags".into(),
+                    "+faststart".into(),
+                    output.display().to_string(),
+                ]);
+                ffmpeg_args
+            }
         };
 
         context.execute_plan(&[context.ffmpeg(ffmpeg_args)])

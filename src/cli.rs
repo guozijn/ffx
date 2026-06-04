@@ -40,6 +40,13 @@ pub struct Cli {
     )]
     pub ffprobe_bin: String,
 
+    #[arg(
+        long,
+        global = true,
+        help = "Disable hardware-accelerated encoding and decoding"
+    )]
+    pub no_hwaccel: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }

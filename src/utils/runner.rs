@@ -6,6 +6,7 @@ use rayon::ThreadPoolBuilder;
 use rayon::prelude::*;
 
 use super::ffmpeg::{MediaProbe, ProcessSpec, probe_media};
+use super::hwaccel::{HwAccelCapabilities, detect_hw_capabilities};
 use super::log::Logger;
 
 #[derive(Debug, Clone)]
@@ -14,6 +15,7 @@ pub struct AppContext {
     pub jobs: usize,
     pub ffmpeg_bin: String,
     pub ffprobe_bin: String,
+    pub hwaccel: HwAccelCapabilities,
     pub logger: Logger,
 }
 
@@ -23,6 +25,7 @@ impl AppContext {
         jobs: usize,
         ffmpeg_bin: String,
         ffprobe_bin: String,
+        hwaccel: HwAccelCapabilities,
         logger: Logger,
     ) -> Result<Self> {
         if jobs == 0 {
@@ -34,8 +37,42 @@ impl AppContext {
             jobs,
             ffmpeg_bin,
             ffprobe_bin,
+            hwaccel,
             logger,
         })
+    }
+
+    pub fn new_with_hwaccel_detection(
+        dry_run: bool,
+        jobs: usize,
+        ffmpeg_bin: String,
+        ffprobe_bin: String,
+        hwaccel_enabled: bool,
+        logger: Logger,
+    ) -> Result<Self> {
+        let hwaccel = detect_hw_capabilities(&ffmpeg_bin, hwaccel_enabled)?;
+        if hwaccel.uses_hardware() {
+            logger.info(format!(
+                "using hardware encoder {} ({})",
+                hwaccel.encoder_name,
+                hwaccel
+                    .hwaccel
+                    .as_deref()
+                    .map(|value| format!("decode via {value}"))
+                    .unwrap_or_else(|| "software decode".into())
+            ));
+        } else if hwaccel_enabled {
+            logger.debug("no hardware H.264 encoder found; using libx264");
+        }
+
+        Self::new(
+            dry_run,
+            jobs,
+            ffmpeg_bin,
+            ffprobe_bin,
+            hwaccel,
+            logger,
+        )
     }
 
     pub fn ffmpeg(&self, args: Vec<String>) -> ProcessSpec {

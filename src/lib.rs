@@ -9,11 +9,12 @@ use utils::runner::AppContext;
 
 pub fn run(cli: Cli) -> Result<()> {
     let logger = Logger::new(cli.verbose);
-    let context = AppContext::new(
+    let context = AppContext::new_with_hwaccel_detection(
         cli.dry_run,
         cli.jobs,
         cli.ffmpeg_bin,
         cli.ffprobe_bin,
+        !cli.no_hwaccel,
         logger,
     )?;
 

@@ -60,6 +60,7 @@ mod tests {
             1,
             "ffmpeg".into(),
             "ffprobe".into(),
+            crate::utils::hwaccel::HwAccelCapabilities::software(),
             Logger::new(false),
         )
         .expect("context");

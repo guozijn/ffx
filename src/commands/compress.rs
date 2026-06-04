@@ -2,6 +2,9 @@ use anyhow::{Context, Result, bail};
 
 use crate::cli::{CompressArgs, Preset};
 use crate::utils::ffmpeg::{ProcessSpec, render_filter_chain};
+use crate::utils::hwaccel::{
+    VideoEncodeSettings, append_h264_encode_args, insert_hwaccel_before_input,
+};
 use crate::utils::file::{build_output_path, ensure_parent_dir, validate_output_options};
 use crate::utils::runner::{AppContext, run_for_inputs};
 
@@ -31,27 +34,26 @@ pub fn build_plan(
         input.display().to_string(),
     ];
 
-    if let Some(target_video_bitrate) = profile.target_video_bitrate(context, input)? {
-        ffmpeg_args.extend([
-            "-c:v".into(),
-            "libx264".into(),
-            "-b:v".into(),
-            target_video_bitrate.clone(),
-            "-maxrate".into(),
-            target_video_bitrate.clone(),
-            "-bufsize".into(),
-            format!("{}k", parse_kbps(&target_video_bitrate)? * 2),
-        ]);
+    let encode_settings = if let Some(target_video_bitrate) = profile.target_video_bitrate(context, input)?
+    {
+        VideoEncodeSettings {
+            crf: profile.crf,
+            x264_preset: Some(profile.speed.clone()),
+            video_bitrate: Some(target_video_bitrate.clone()),
+            maxrate: Some(target_video_bitrate.clone()),
+            bufsize: Some(format!("{}k", parse_kbps(&target_video_bitrate)? * 2)),
+        }
     } else {
-        ffmpeg_args.extend([
-            "-c:v".into(),
-            "libx264".into(),
-            "-preset".into(),
-            profile.speed.clone(),
-            "-crf".into(),
-            profile.crf.to_string(),
-        ]);
-    }
+        VideoEncodeSettings {
+            crf: profile.crf,
+            x264_preset: Some(profile.speed.clone()),
+            video_bitrate: None,
+            maxrate: None,
+            bufsize: None,
+        }
+    };
+    insert_hwaccel_before_input(&mut ffmpeg_args, &context.hwaccel);
+    append_h264_encode_args(&mut ffmpeg_args, &context.hwaccel, &encode_settings);
 
     if let Some(filter) = profile.video_filter(input_probe.as_ref()) {
         ffmpeg_args.extend(["-vf".into(), filter]);
@@ -181,6 +183,7 @@ mod tests {
             1,
             "ffmpeg".into(),
             "ffprobe".into(),
+            crate::utils::hwaccel::HwAccelCapabilities::software(),
             Logger::new(false),
         )
         .expect("context");

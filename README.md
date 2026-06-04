@@ -12,6 +12,7 @@
 - `cut` for single or multi-segment trimming with optional merge
 - Batch processing with configurable concurrency
 - `--dry-run` support for inspecting generated FFmpeg commands
+- Hardware-accelerated H.264 encoding when FFmpeg supports it (VideoToolbox on macOS, NVENC/QSV/AMF elsewhere)
 - Presets for `web`, `discord`, and `high-quality`
 
 ## Requirements
@@ -25,6 +26,19 @@
 cargo build --release
 ./target/release/ffx --help
 ```
+
+## Hardware acceleration
+
+By default, `ffx` probes your `ffmpeg` binary at startup and picks the best available H.264 hardware encoder:
+
+| Platform | Encoder | Decode acceleration |
+|----------|---------|---------------------|
+| macOS | `h264_videotoolbox` | `videotoolbox` |
+| NVIDIA | `h264_nvenc` | `cuda` / `nvdec` |
+| Intel | `h264_qsv` | `qsv` |
+| AMD (Windows) | `h264_amf` | `d3d11va` / `dxva2` |
+
+If no hardware encoder is available, `ffx` falls back to `libx264`. Use `--no-hwaccel` to force software encoding.
 
 ## macOS
 
@@ -153,6 +167,7 @@ Inspect the FFmpeg commands without executing them:
 ```bash
 ffx --dry-run compress input.mov
 ffx --dry-run cut input.mp4 --segment 10-20 --segment 30-40
+ffx --no-hwaccel compress input.mov
 ```
 
 ## Development

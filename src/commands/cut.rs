@@ -7,6 +7,9 @@ use tempfile::TempDir;
 
 use crate::cli::CutArgs;
 use crate::utils::ffmpeg::{MediaProbe, ProcessSpec};
+use crate::utils::hwaccel::{
+    VideoEncodeSettings, append_h264_encode_args, insert_hwaccel_before_input,
+};
 use crate::utils::file::{
     build_output_path, build_segment_output_path, ensure_parent_dir, validate_output_options,
 };
@@ -91,35 +94,11 @@ fn run_single_input(context: &AppContext, args: &CutArgs, input: &Path) -> Resul
                 "concat copy verification failed for {}; retrying with re-encode",
                 input.display()
             ));
-            let merge_reencode = context.ffmpeg(vec![
-                "-hide_banner".into(),
-                "-y".into(),
-                "-f".into(),
-                "concat".into(),
-                "-safe".into(),
-                "0".into(),
-                "-i".into(),
-                concat_list.display().to_string(),
-                "-map".into(),
-                "0:v:0".into(),
-                "-map".into(),
-                "0:a:0?".into(),
-                "-sn".into(),
-                "-dn".into(),
-                "-c:v".into(),
-                "libx264".into(),
-                "-crf".into(),
-                "20".into(),
-                "-preset".into(),
-                "medium".into(),
-                "-c:a".into(),
-                "aac".into(),
-                "-b:a".into(),
-                "192k".into(),
-                "-movflags".into(),
-                "+faststart".into(),
-                output.display().to_string(),
-            ]);
+            let merge_reencode = context.ffmpeg(merge_reencode_args(
+                context,
+                &concat_list,
+                &output,
+            ));
             context.execute_step(&merge_reencode).and_then(|_| {
                 validate_output(
                     context,
@@ -184,20 +163,7 @@ fn run_trim_command(
     ];
 
     if reencode {
-        args.extend([
-            "-c:v".into(),
-            "libx264".into(),
-            "-crf".into(),
-            "20".into(),
-            "-preset".into(),
-            "medium".into(),
-            "-c:a".into(),
-            "aac".into(),
-            "-b:a".into(),
-            "192k".into(),
-            "-movflags".into(),
-            "+faststart".into(),
-        ]);
+        extend_reencode_args(context, &mut args);
     } else {
         args.extend([
             "-c:v".into(),
@@ -251,20 +217,7 @@ fn build_extract_specs(
         ];
 
         if reencode {
-            args.extend([
-                "-c:v".into(),
-                "libx264".into(),
-                "-crf".into(),
-                "20".into(),
-                "-preset".into(),
-                "medium".into(),
-                "-c:a".into(),
-                "aac".into(),
-                "-b:a".into(),
-                "192k".into(),
-                "-movflags".into(),
-                "+faststart".into(),
-            ]);
+            extend_reencode_args(context, &mut args);
         } else {
             args.extend([
                 "-c:v".into(),
@@ -287,6 +240,51 @@ fn build_extract_specs(
     }
 
     (files, specs)
+}
+
+fn cut_encode_settings() -> VideoEncodeSettings {
+    VideoEncodeSettings {
+        crf: 20,
+        x264_preset: Some("medium".into()),
+        video_bitrate: None,
+        maxrate: None,
+        bufsize: None,
+    }
+}
+
+fn extend_reencode_args(context: &AppContext, args: &mut Vec<String>) {
+    insert_hwaccel_before_input(args, &context.hwaccel);
+    append_h264_encode_args(args, &context.hwaccel, &cut_encode_settings());
+    args.extend([
+        "-c:a".into(),
+        "aac".into(),
+        "-b:a".into(),
+        "192k".into(),
+        "-movflags".into(),
+        "+faststart".into(),
+    ]);
+}
+
+fn merge_reencode_args(context: &AppContext, concat_list: &Path, output: &Path) -> Vec<String> {
+    let mut args = vec![
+        "-hide_banner".into(),
+        "-y".into(),
+        "-f".into(),
+        "concat".into(),
+        "-safe".into(),
+        "0".into(),
+        "-i".into(),
+        concat_list.display().to_string(),
+        "-map".into(),
+        "0:v:0".into(),
+        "-map".into(),
+        "0:a:0?".into(),
+        "-sn".into(),
+        "-dn".into(),
+    ];
+    extend_reencode_args(context, &mut args);
+    args.push(output.display().to_string());
+    args
 }
 
 fn write_concat_list(temp_dir: &Path, files: &[PathBuf]) -> Result<PathBuf> {
