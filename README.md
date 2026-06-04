@@ -22,6 +22,32 @@
 
 ## Install
 
+Pre-built binaries are on the [GitHub Releases](https://github.com/guozijn/ffx/releases) page.
+
+### macOS (Apple Silicon)
+
+```bash
+curl -LO https://github.com/guozijn/ffx/releases/download/v0.1.3/ffx-v0.1.3-aarch64-apple-darwin.tar.gz
+tar -xzf ffx-v0.1.3-aarch64-apple-darwin.tar.gz
+sudo install -m 755 ffx-v0.1.3-aarch64-apple-darwin/ffx /usr/local/bin/ffx
+rm -rf ffx-v0.1.3-aarch64-apple-darwin ffx-v0.1.3-aarch64-apple-darwin.tar.gz
+ffx --help
+```
+
+### Linux (x86_64)
+
+```bash
+curl -LO https://github.com/guozijn/ffx/releases/download/v0.1.3/ffx-v0.1.3-x86_64-unknown-linux-gnu.tar.gz
+tar -xzf ffx-v0.1.3-x86_64-unknown-linux-gnu.tar.gz
+sudo install -m 755 ffx-v0.1.3-x86_64-unknown-linux-gnu/ffx /usr/local/bin/ffx
+rm -rf ffx-v0.1.3-x86_64-unknown-linux-gnu ffx-v0.1.3-x86_64-unknown-linux-gnu.tar.gz
+ffx --help
+```
+
+Windows builds are published as `.zip` on the [releases page](https://github.com/guozijn/ffx/releases); extract `ffx.exe` and add it to your `PATH`.
+
+### Build from source
+
 ```bash
 cargo build --release
 ./target/release/ffx --help
@@ -45,14 +71,8 @@ If no hardware encoder is available, `ffx` falls back to `libx264`. Use `--no-hw
 If macOS shows `"ffx" Not Opened` because the binary is not notarized, remove the quarantine attribute manually:
 
 ```bash
-xattr -d com.apple.quarantine /path/to/ffx
-```
-
-For a binary in the current directory:
-
-```bash
-xattr -d com.apple.quarantine ./ffx
-./ffx --help
+xattr -d com.apple.quarantine /usr/local/bin/ffx
+ffx --help
 ```
 
 ## Command Overview
